@@ -1,3 +1,24 @@
+# Changes from main branch
+I am trying to port this into linux and possible OSX arm machines. Right now it is running on Linux with some changes. 
+* Primarily in the Python version `(3.7)` to `(3.8)`
+* Updating Pandas from `1.2.0` to `2.0.3`. This caused the `squeeze` and `iteritems()` methods to be deprecated. I have updated them.
+* the removal of Windows only packages
+* adding `anaconda` channel to get the `intel-openmp` package.
+
+Tested on:
+```bash
+CPU: Intel(R) Core(TM) i7-5820K CPU @ 3.30GHz
+GPU: eForce RTX 2080 Ti (Driver Version: 535.183.06   CUDA Version: 12.2)
+Distributor ID:	Ubuntu
+Description:	Ubuntu 20.04.6 LTS
+Release:	20.04
+Codename:	focal
+```
+
+## Potential issues
+* I have only tested this on command line but the replay visualization works if you save the values to a folder instead of viewing it using (i assume) pyQt.
+
+
 # FleetPy
 **FleetPy** is a simulation framework to model and control the tasks of vehicle fleets (routing, user-assignment, charging, ...)
 

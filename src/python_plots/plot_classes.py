@@ -220,7 +220,8 @@ class PyPlot(Process):
             file_name = "plot_{}.png".format(datetime_stamp.strftime("%d-%b-%Y %H-%M-%S"))
         else:
             file_name = "plot_{}.png".format(datetime_stamp)
-        plt.savefig(str(self.plot_folder.joinpath(file_name)), bbox_inches = 'tight')
+        # plt.savefig(str(self.plot_folder.joinpath(file_name)), bbox_inches = 'tight')
+        plt.savefig(str(self.plot_folder.joinpath(file_name)))
 
     def __animate(self, i):
         [ax.clear() for ax in self.axes]
