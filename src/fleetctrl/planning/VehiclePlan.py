@@ -546,7 +546,17 @@ class VehiclePlan:
     """ this class is used to plan tasks for a vehicle and evaluates feasiblity of time constraints of this plan
     a Vehicle mainly consists of two parts:
         - a vehicle this plan is assigned to, and therefore the current state of the vehicle
-        - an ordered list of PlanStops defining the tasks the vehicle is supposed to perform (vehicles move from one plan stop to another)"""
+        - an ordered list of PlanStops defining the tasks the vehicle is supposed to perform (vehicles move from one plan stop to another)
+
+    plan_rules: optional object with extra feasibility rules for every plan, set by a module (e.g. a charging
+    strategy) at the start of a run and shared by all plans of the run (FleetSimulationBase clears it when a run
+    starts). Worker processes of a parallel optimizer do not see it, so a module that sets it must run on one CPU. It provides
+        lowest_soc(plan, stop_index, plan_stop, arrival_time, prev_pos) -> lowest planned charge allowed on arrival at
+            the stop, coming from prev_pos
+        check_plan(plan, veh_obj, sim_time, routing_engine) -> False if the plan breaks a rule; called after times
+            and charges of all stops are planned
+    With None (the default) a plan only has to keep its charge at or above 0."""
+    plan_rules = None
     def __init__(self, veh_obj : SimulationVehicle, sim_time : float, routing_engine : NetworkBase, list_plan_stops : List[PlanStopBase], copy: bool =False, external_pax_info : dict = {}):
         """
         :param veh_obj: corresponding simulation vehicle reference
@@ -828,12 +838,15 @@ class VehiclePlan:
                         LOG.warning(f"update_tt_and_check_plan(): try to remove a rid that is not on board!")
                         
                 # set departure time
+                start_c_time = c_time
                 c_time = pstop.get_departure_time(c_time)
                 pstop.set_planned_arrival_and_departure_time(last_c_time, c_time)
-                # set charge
-                if pstop.get_charging_power() > 0:  # TODO # is charging now in waiting included as planned here?
-                    c_soc += veh_obj.compute_soc_charging(pstop.get_charging_power(), c_time - last_c_time)
-                    c_soc = max(c_soc, 1.0)
+                # set charge: only charging still to come counts (from the stop's start, or from now if it has
+                # started, since the vehicle's soc already holds what it gained); waiting for it gains nothing
+                if pstop.get_charging_power() > 0:
+                    remaining = max(0.0, c_time - max(start_c_time, sim_time))
+                    c_soc += veh_obj.compute_soc_charging(pstop.get_charging_power(), remaining)
+                    c_soc = min(c_soc, 1.0)
                 pstop.set_planned_arrival_and_departure_soc(last_c_soc, c_soc)
                     
         return {"stop_index": stop_index, "c_pos": c_pos, "c_soc": c_soc, "c_time": c_time, "c_pax": c_pax,
@@ -899,12 +912,13 @@ class VehiclePlan:
                     # LOG.debug(f" -> break because infeasible | is feasible {is_feasible} keep_feasible {keep_feasible}")
                     break
                 _, tt, tdist = routing_engine.return_travel_costs_1to1(c_pos, pstop_pos)
+                prev_pos = c_pos
                 c_pos = pstop_pos
                 c_time += tt
                 # LOG.debug(f"c_time 2 {c_time}")
 
                 c_soc -= veh_obj.compute_soc_consumption(tdist)
-                if c_soc < 0:
+                if c_soc < self._lowest_allowed_soc(i, pstop, c_time, prev_pos):
                     is_feasible = False
                     infeasible_index = i
                     # LOG.debug(" -> charging wrong")
@@ -949,14 +963,21 @@ class VehiclePlan:
                     is_feasible = False
                     infeasible_index = i
 
+                start_c_time = c_time
                 c_time = pstop.get_departure_time(c_time)
                 pstop.set_planned_arrival_and_departure_time(last_c_time, c_time)
 
-                if pstop.get_charging_power() > 0:  # TODO # is charging now in waiting included as planned here?
-                    c_soc += veh_obj.compute_soc_charging(pstop.get_charging_power(), c_time - last_c_time)
-                    c_soc = max(c_soc, 1.0)
+                # only charging still to come counts (from the stop's start, or from now if it has started, since
+                # the vehicle's soc already holds what it gained); waiting for it gains nothing
+                if pstop.get_charging_power() > 0:
+                    remaining = max(0.0, c_time - max(start_c_time, sim_time))
+                    c_soc += veh_obj.compute_soc_charging(pstop.get_charging_power(), remaining)
+                    c_soc = min(c_soc, 1.0)
                 pstop.set_planned_arrival_and_departure_soc(last_c_soc, c_soc)
                     
+        if is_feasible and VehiclePlan.plan_rules is not None \
+                and not VehiclePlan.plan_rules.check_plan(self, veh_obj, sim_time, routing_engine):
+            is_feasible = False  # no stop is to blame, so keep_feasible locks none (infeasible_index stays -1)
         if keep_feasible and not is_feasible:
             for i, p_stop in enumerate(self.list_plan_stops):
                 if i > infeasible_index:
@@ -966,6 +987,13 @@ class VehiclePlan:
         # LOG.debug(f"is feasible {is_feasible} | pax info {self.pax_info}")
         # LOG.debug("update plan and check tt {}".format(self))
         return is_feasible
+
+    def _lowest_allowed_soc(self, stop_index : int, pstop : PlanStopBase, arrival_time : float, prev_pos : tuple) -> float:
+        """ lowest planned charge allowed on arriving at a plan stop from prev_pos: 0 in FleetPy, or what the plan
+        rules set (a study's charge reserve) """
+        if VehiclePlan.plan_rules is None:
+            return 0.0
+        return VehiclePlan.plan_rules.lowest_soc(self, stop_index, pstop, arrival_time, prev_pos)
 
     def get_dedicated_rid_list(self) -> list:
         """ returns a list of request-ids whicht are part of this vehicle plan

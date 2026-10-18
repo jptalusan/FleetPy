@@ -24,6 +24,7 @@ import numpy as np
 from src.misc.init_modules import load_fleet_control_module, load_routing_engine, load_broker_module, load_pt_control_module
 from src.demand.demand import Demand, SlaveDemand
 from src.simulation.Vehicles import SimulationVehicle
+from src.fleetctrl.planning.VehiclePlan import VehiclePlan
 if tp.TYPE_CHECKING:
     from src.fleetctrl.FleetControlBase import FleetControlBase
     from src.routing.road.NetworkBase import NetworkBase
@@ -124,6 +125,8 @@ def build_operator_attribute_dicts(parameters, n_op, prefix="op_"):
 class FleetSimulationBase:
     def __init__(self, scenario_parameters: dict):
         self.t_init_start = time.perf_counter()
+        # plan rules are process-wide: clear any left by an earlier scenario run in this process
+        VehiclePlan.plan_rules = None
         # config
         self.scenario_name = scenario_parameters[G_SCENARIO_NAME]
         print("-"*80 + f"\nSimulation of scenario {self.scenario_name}")

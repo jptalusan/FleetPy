@@ -215,3 +215,9 @@ CLAUDE.md
 
 # tensorflow in ml_gym
 src/ml_gym/tensorboard/*
+# The CARTA GO study (jptalusan/carta-go-av-study) links itself in here; its files live in that repository
+studies/carta_go
+log/
+
+# Gurobi license file (WLS credentials, never commit)
+*.lic

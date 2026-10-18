@@ -2,6 +2,7 @@
 # standard distribution imports
 # -----------------------------
 from __future__ import annotations
+import copy
 import logging
 import pandas as pd
 import typing as tp
@@ -112,7 +113,8 @@ class SimulationVehicle:
         :return:
         """
         self.status = VRL_STATES.IDLE
-        self.pos = routing_engine.return_node_position(state_dict[G_V_INIT_NODE])
+        # a row read from an initial state file comes as one float Series, so the node index arrives as a float
+        self.pos = routing_engine.return_node_position(int(state_dict[G_V_INIT_NODE]))
         self.soc = state_dict[G_V_INIT_SOC]
         if veh_init_blocking:
             final_time = state_dict[G_V_INIT_TIME]
@@ -172,6 +174,10 @@ class SimulationVehicle:
             LOG.debug("start stationary process at {}: duration before : {}".format(simulation_time, self.cl_remaining_time))
             ca.stationary_process.start_task(simulation_time)
             self.cl_remaining_time = ca.stationary_process.remaining_duration_to_finish(simulation_time)
+            if ca.duration:
+                # stop at the booked duration: a vehicle arriving emptier than planned would otherwise charge
+                # longer than its plan assumed and reach later stops after their latest pickup times
+                self.cl_remaining_time = min(self.cl_remaining_time, ca.duration)
             LOG.debug("duration after: {}".format(self.cl_remaining_time))
             return [], []
     
@@ -366,6 +372,10 @@ class SimulationVehicle:
                     else:
                         if force_ignore_lock and not self.assigned_route[0].status == VRL_STATES.BOARDING:
                             self.end_current_leg(sim_time)
+                        elif list_route_legs and self._is_started_leg_rebuilt(list_route_legs[0]):
+                            # the locked leg in progress, rebuilt from the plan with a new planned start time (a
+                            # "wait first" approach to a pickup or charger whose window opens later): keep driving
+                            start_flag = False
                         else:
                             LOG.error("vid : {}".format(self.vid))
                             LOG.error("currently assigned: {}".format([str(x) for x in self.assigned_route]))
@@ -380,6 +390,18 @@ class SimulationVehicle:
         if list_route_legs:
             if start_flag:
                 self.start_next_leg_first = True
+
+    def _is_started_leg_rebuilt(self, new_leg: VehicleRouteLeg) -> bool:
+        """True if new_leg equals the started current leg except for its planned earliest start time.
+
+        A start time stops mattering once a leg has started, so such a leg is the same leg, rebuilt.
+        """
+        current = self.assigned_route[0]
+        if self.cl_start_pos is None or self.start_next_leg_first:  # the vehicle has not started its current leg
+            return False
+        same_start = copy.copy(new_leg)
+        same_start.earliest_start_time = current.earliest_start_time
+        return same_start == current
 
     def update_veh_state(self, current_time:float, next_time:float)->tp.Tuple[tp.Dict[tp.Any, tp.Tuple[float, tuple]], tp.Dict[tp.Any, tp.Tuple[float, tuple]], tp.List[VehicleRouteLeg], tp.Dict[tp.Any, tp.Tuple[float, tuple]]]:
         """This method updates the current state of a simulation vehicle. This includes moving, boarding etc.

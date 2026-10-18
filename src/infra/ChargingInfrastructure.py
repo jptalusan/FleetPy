@@ -37,6 +37,11 @@ LOG = logging.getLogger(__name__)
 
 MAX_CHARGING_SEARCH = 100   # TODO # in globals?
 LARGE_INT = 100000000
+# Depot top-ups shorter than this are skipped (one simulation time step in the usual 60 s setup). A nearly full vehicle
+# would otherwise get a booking that starts and ends inside one step; vehicles are updated one after another, so the
+# next vehicle on that socket can find the booking past its start but not yet begun ("uncancelled bookings"), and
+# sub-second bookings also collide in their whole-second ids.
+MIN_DEPOT_CHARGE_S = 60
 
 class ChargingSocket:
     """ This class represents a single charging socket """
@@ -395,8 +400,9 @@ class Depot(ChargingStation):
         
     def pick_vehicle_to_be_active(self) -> SimulationVehicle:
         """ selects the vehicle with highest soc from the list of deactivated vehicles (does not activate the vehicle yet!)
-        :return: simulation vehicle obj"""
-        return max([veh for veh in self.deactivated_vehicles if veh.pos == self.pos], key = lambda x:x.soc)
+        :return: simulation vehicle obj; None if no deactivated vehicle has reached the depot yet"""
+        parked = [veh for veh in self.deactivated_vehicles if veh.pos == self.pos]
+        return max(parked, key = lambda x:x.soc) if parked else None
     
     def refill_charging(self, fleetctrl: FleetControlBase, simulation_time, keep_free_for_short_term=0):
         """This method fills empty charging slots in a depot with the lowest SOC parking (status 5) vehicles.
@@ -430,6 +436,8 @@ class Depot(ChargingStation):
             charging_options = self.get_charging_slots(simulation_time, veh_obj, simulation_time, veh_obj.soc, 1.0)
             if len(charging_options) > 0:
                 selected_charging_option = min(charging_options, key=lambda x:x[3])
+                if selected_charging_option[3] - selected_charging_option[2] < MIN_DEPOT_CHARGE_S:
+                    continue  # nearly full; see MIN_DEPOT_CHARGE_S
                 ch_process = self.make_booking(simulation_time, selected_charging_option[1], veh_obj, start_time=selected_charging_option[2], end_time=selected_charging_option[3])
                 start_time, end_time = ch_process.get_scheduled_start_end_times()
                 charging_task_id = (self.ch_op_id, ch_process.id)

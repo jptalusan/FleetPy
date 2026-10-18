@@ -155,6 +155,10 @@ class V2RB():
             if ps.is_locked_end():
                 new_plan_list.append(ps.copy())
                 continue
+            if ps.is_locked() and not ps.get_list_boarding_rids() and not ps.get_list_alighting_rids():
+                # a locked stop without riders (charging, break) keeps its own time window and end time
+                new_plan_list.append(ps.copy())
+                continue
             new_boarding_dict = {}
             new_max_trip_time_dict = {}
             new_earliest_pickup_time_dict = {}

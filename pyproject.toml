@@ -1,0 +1,37 @@
+# uv environment for FleetPy (mirrors environment.yml; FleetPy itself is not an installable package).
+# Set up with `uv sync`, then run scripts with `uv run python <script>` from the repo root.
+[project]
+name = "fleetpy-av"
+version = "0.1.0"
+description = "FleetPy with charging-policy extensions used by the CARTA GO AV vs human-driver study"
+requires-python = "==3.10.*"
+dependencies = [
+    "numpy==2.2.*",
+    "scipy==1.15.*",
+    "plotly==5.24.*",
+    "cython==3.0.11",
+    "fiona==1.10.1",
+    "geopandas==1.0.1",
+    "pandas==2.2.3",
+    "pyogrio==0.10.0",
+    "pyproj==3.7.0",
+    "pyyaml==6.0.2",
+    "rtree==1.3.0",
+    "shapely==2.0.6",
+    "tqdm==4.67.1",
+    "dill==0.3.9",
+    "matplotlib",
+    "requests",
+    "nbformat>=4.2.0",
+    "osmnx>=2.0",  # only for scripts/build_osm_network.py (Phase 3B via OpenStreetMap)
+]
+
+[project.optional-dependencies]
+# Gurobi solver for FleetPy's batch-optimization modules and the full module tests: `uv sync --extra gurobi`.
+# pip's gurobipy runs with a size-limited license; a full (academic) license goes in ~/gurobi.lic.
+gurobi = ["gurobipy"]
+# Jupyter for the study notebooks: `uv sync --extra notebook`.
+notebook = ["jupyterlab", "nbconvert", "ipykernel"]
+
+[tool.uv]
+package = false

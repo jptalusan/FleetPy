@@ -125,11 +125,10 @@ class DynamicFleetSizingBase(ABC):
                 self.fleetctrl.receive_status_update(veh_obj.vid, sim_time, [inactive_vrl])
             depot.schedule_active(veh_obj)
         else:
-            LOG.info("Activation failed!")
-            if depot_input is not None:
-                LOG.warning(f"Activation failed! Trying to activate again in {REACTIVATE_TIME/60} min")
-                new_activate_time = sim_time + REACTIVATE_TIME
-                self.add_time_triggered_activate(new_activate_time, 1, depot=depot_input)
+            # no deactivated vehicle has reached the depot yet (it may still be driving there): try again later
+            LOG.warning(f"Activation failed! Trying to activate again in {REACTIVATE_TIME/60} min")
+            new_activate_time = sim_time + REACTIVATE_TIME
+            self.add_time_triggered_activate(new_activate_time, 1, depot=depot_input)
         return veh_obj
     
     def add_time_triggered_activate(self, activate_time, nr_activate, depot=None):
@@ -257,7 +256,9 @@ class DynamicFleetSizingBase(ABC):
             if simulation_time >= activate_time:
                 list_remove_index.append(i)
                 for _ in range(nr_activate):
-                    return_veh_list.append(self.activate_vehicle(simulation_time, depot))
+                    veh_obj = self.activate_vehicle(simulation_time, depot)
+                    if veh_obj is not None:  # a failed activation is rescheduled inside activate_vehicle
+                        return_veh_list.append(veh_obj)
             else:
                 break
         for i in reversed(list_remove_index):

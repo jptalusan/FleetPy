@@ -104,6 +104,7 @@ def get_src_fleet_control_modules():
     # FleetPy fleet control options
     op_dict = {}  # str -> (module path, class name)
     op_dict["PoolingIRSOnly"] = ("src.fleetctrl.PoolingIRSOnly", "PoolingInsertionHeuristicOnly")
+    op_dict["HumanDriverPoolingIRS"] = ("src.fleetctrl.HumanDriverPoolingIRS", "HumanDriverPoolingIRS")
     op_dict["PoolingIRSAssignmentBatchOptimization"] = ("src.fleetctrl.PoolingIRSBatchOptimization", "PoolingIRSAssignmentBatchOptimization")
     op_dict["RidePoolingBatchAssignmentFleetcontrol"] = ("src.fleetctrl.RidePoolingBatchAssignmentFleetcontrol", "RidePoolingBatchAssignmentFleetcontrol")
     op_dict["BrokerExChangeCtrl"] = ("src.fleetctrl.BrokerAndExchangeFleetControl", "BrokerExChangeCtrl")
@@ -163,6 +164,7 @@ def get_src_charging_strategies():
     # TODO # adapt charging strategy names
     cs_dict = {}  # str -> (module path, class name)
     cs_dict["Threshold_PCI"] = ("src.fleetctrl.charging.Threshold", "ChargingThresholdPublicInfrastructure")
+    cs_dict["PolicyCharging"] = ("src.fleetctrl.charging.PolicyCharging", "PolicyCharging")
     # add development content
     if dev_content is not None:
         dev_cs_dict = dev_content.add_charging_strategy_modules()
@@ -185,6 +187,7 @@ def get_src_dynamic_fleet_sizing_strategies():
     dfs_dict = {}  # str -> (module path, class name)
     dfs_dict["TimeBasedFS"] = ("src.fleetctrl.fleetsizing.TimeBasedFS", "TimeBasedFS")
     dfs_dict["UtilizationBasedFS"] = ("src.fleetctrl.fleetsizing.UtilizationBasedFS", "UtilizationBasedFS")
+    dfs_dict["ShiftChargingFS"] = ("src.fleetctrl.fleetsizing.ShiftChargingFS", "ShiftChargingFS")
     # add development content
     if dev_content is not None:
         dev_dfs_dict = dev_content.add_dynamic_fleetsizing_strategy_modules()

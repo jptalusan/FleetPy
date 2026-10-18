@@ -72,7 +72,7 @@ class SimulationVehicleStruct():
         :return: delta SOC
         :rtype: float
         """
-        return power * duration / self.battery_size
+        return power * duration / (self.battery_size * 3600)  # kW * s -> kWh, as in SimulationVehicle
 
     def compute_soc_consumption(self, distance : float) -> float:
         """This method returns the SOC change for driving a certain given distance.
